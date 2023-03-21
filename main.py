@@ -11,6 +11,10 @@ import simulation
 import solarSystem
 
 # functions.optical_flow_mod()
-solar_system = solarSystem.SolarSystem(400)
-plt.show()
+solar_system = solarSystem.SolarSystem(200)
+
+body = solarSystem.SolarSystemBody(solar_system, 100, velocity=(1, 1, 1))
+for _ in range(100):
+    solar_system.update_all()
+    solar_system.draw_all()
 
