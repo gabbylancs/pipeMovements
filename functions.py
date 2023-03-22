@@ -2,6 +2,7 @@ import numpy as np
 import cv2 as cv
 import random
 from matplotlib import pyplot as plt
+import CameraSim
 
 focalLength = 800  # might be more like 0.07 - 0.4
 diameter = 0.085
@@ -13,6 +14,12 @@ def optical_flow_mod(consecutive_frames=5, missing_frames=3):
     # create orb
     orb = cv.ORB_create()
     bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
+
+    # going to set up plot stuff
+    camera = CameraSim.CameraObject(20)
+    new_pipe = CameraSim.PipeEnvironment(camera.centre_x, camera.centre_y, 25, 500, camera)
+    new_pipe.PlotPipeSurface()
+    plt.show()
 
     # capture video from file:
     cap = cv.VideoCapture('video.mp4')
@@ -75,12 +82,15 @@ def optical_flow_mod(consecutive_frames=5, missing_frames=3):
         img = cv.add(frame, mask)  # Add the lines/circles onto image
         resized = resize_frame(img, 50)
         # cv.putText(resized, 'distance ' + str(total_d), (10, 450), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2,
-                  # cv.LINE_AA)
+        # cv.LINE_AA)
         cv.putText(resized, 'x_ang =  ' + str(angle_x) + 'y_ang = ' + str(angle_y), (10, 450), cv.FONT_HERSHEY_SIMPLEX,
                    1, (0, 255, 0), 2, cv.LINE_AA)
         video.write(resized)
-        cv.imshow('frame', resized)  # Display image
-        cv.waitKey(0)
+        plt.pause(1)
+        plt.imshow('pipe', resized)
+        plt.pause(0.05)
+        # cv.imshow('frame', resized)  # Display image
+        # cv.waitKey(0)
 
         pts_prev = pts
         des_prev = des
@@ -168,18 +178,14 @@ def findPositions(pt1s_x, pt1s_y, pt2s_x, pt2s_y, center_x, center_y):
 # camera in angles. Then calculate the distance of the camera from the center of the image (initially just in the x
 # dimension) and convert to degrees.
 def findAngles(center_x, center_y, frame):
-
-    middle_x = frame.shape[1]/2
-    middle_y = frame.shape[0]/2
-    reso_x = 50/frame.shape[1]
-    reso_y = 45/frame.shape[0]
+    middle_x = frame.shape[1] / 2
+    middle_y = frame.shape[0] / 2
+    reso_x = 50 / frame.shape[1]
+    reso_y = 45 / frame.shape[0]
 
     x_angle_p = center_x - middle_x
     y_angle_p = center_y - middle_y
-    x_angle_d = x_angle_p*reso_x
+    x_angle_d = x_angle_p * reso_x
     y_angle_d = y_angle_p * reso_y
 
     return x_angle_d, y_angle_d
-
-
-
