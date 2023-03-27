@@ -16,10 +16,10 @@ def optical_flow_mod(consecutive_frames=5, missing_frames=3):
     bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
 
     # going to set up plot stuff
-    camera = CameraSim.CameraObject(20)
-    new_pipe = CameraSim.PipeEnvironment(camera.centre_x, camera.centre_y, 25, 500, camera)
-    new_pipe.PlotPipeSurface()
-    plt.show()
+    # camera = CameraSim.CameraObject(20)
+    # new_pipe = CameraSim.PipeEnvironment(camera.centre_x, camera.centre_y, 25, 500, camera)
+    # new_pipe.PlotPipeSurface()
+    # plt.show()
 
     # capture video from file:
     cap = cv.VideoCapture('video.mp4')
@@ -58,8 +58,11 @@ def optical_flow_mod(consecutive_frames=5, missing_frames=3):
         # Sort them in the order of their distance.
         matches_sorted = sorted(matches, key=lambda x: x.distance)
         avg_d = 0
+        avg_theta = 0
+        n_ = 0
         # we're going to only look at the top twenty matches
         for j in range(0, 10):
+            n_ += 1
             match_des = des[matches_sorted[j].trainIdx]
             match_x = int(pts[matches_sorted[j].trainIdx][0])
             match_y = int(pts[matches_sorted[j].trainIdx][1])
@@ -67,13 +70,20 @@ def optical_flow_mod(consecutive_frames=5, missing_frames=3):
             match_y_q = int(pts_prev[matches_sorted[j].queryIdx][1])
 
             d = findPositions(match_x, match_y, match_x_q, match_y_q, int(circle_x), int(circle_y))
-            if 3 > d > -3:
+            theta_ = findRotation(match_x, match_y, match_x_q, match_y_q, int(circle_x), int(circle_y))
+
+            if 3 > d > -3 and d != 0:
                 avg_d += d
+            else:
+                n_ -= 1
+            if np.pi/3 > theta_ > -np.pi:
+                avg_theta += np.rad2deg(theta_)
 
             cv.line(mask, (match_x_q, match_y_q), (match_x, match_y),
                     (0, 255, 0), 7)
 
-        avg_d = avg_d / 10
+        avg_d = avg_d / n_
+        avg_theta = avg_theta / 10
         total_d += avg_d
         angle_x, angle_y = findAngles(int(circle_x), int(circle_y), frame)
 
@@ -83,14 +93,11 @@ def optical_flow_mod(consecutive_frames=5, missing_frames=3):
         resized = resize_frame(img, 50)
         # cv.putText(resized, 'distance ' + str(total_d), (10, 450), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2,
         # cv.LINE_AA)
-        cv.putText(resized, 'x_ang =  ' + str(angle_x) + 'y_ang = ' + str(angle_y), (10, 450), cv.FONT_HERSHEY_SIMPLEX,
+        cv.putText(resized, 'rotation =  ' + str(avg_theta) + 'y_ang = ' + str(angle_y), (10, 450), cv.FONT_HERSHEY_SIMPLEX,
                    1, (0, 255, 0), 2, cv.LINE_AA)
         video.write(resized)
-        plt.pause(1)
-        plt.imshow('pipe', resized)
-        plt.pause(0.05)
-        # cv.imshow('frame', resized)  # Display image
-        # cv.waitKey(0)
+        cv.imshow('frame', resized)  # Display image
+        cv.waitKey(0)
 
         pts_prev = pts
         des_prev = des
@@ -101,6 +108,20 @@ def optical_flow_mod(consecutive_frames=5, missing_frames=3):
 
 
 # - - - - - - - - additional functions - - - - - - - - - - - - - - -
+
+
+# FIND CAM VECTOR
+# basically trying to get a vector representation of the camera for visual satisfaction
+# current_rotation - angle of rotation
+# total_d          - the distance the camera has moved
+# angle_x          - the angle of the camera with respect to the centre (x)
+# angle_y          - the angle of the camera with respect to the centre (y)
+
+# it's a friday and i cant think so using D-H to get a transformation matrix:
+
+def findCamVector(current_rotation, total_d, angle_x, angle_y):
+    return current_rotation*total_d*angle_y*angle_x
+
 
 # RESIZE FRAME
 # simple function to resize an image or frame
@@ -160,6 +181,9 @@ def findPositions(pt1s_x, pt1s_y, pt2s_x, pt2s_y, center_x, center_y):
     r_sq2 = np.square(x_pix2) + np.square(y_pix2)
     r_pix2 = np.sqrt(r_sq2)
 
+    if r_pix1 < 200 or r_pix2 < 200:
+        return 0
+
     # okay so now we have the pixel distance of a 2.5cm object (radius of pipe)
 
     # now we're going to use the formula: d = (W*f)/w
@@ -170,6 +194,13 @@ def findPositions(pt1s_x, pt1s_y, pt2s_x, pt2s_y, center_x, center_y):
 
     delta_d = d2 - d1
     return delta_d
+
+
+def findRotation(pt1s_x, pt1s_y, pt2s_x, pt2s_y, center_x, center_y):
+    theta_1 = np.arctan((pt1s_x - center_x)/(pt1s_y - center_y))
+    theta_2 = np.arctan((pt2s_x - center_x)/(pt2s_y - center_y))
+
+    return theta_1 - theta_2  # should correspond to antic
 
 
 # FIND ANGLES
